@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0B0B0B" />
+<title>MASK:OFF — 얼굴 말고, 성격을 밝히는 밤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+  /* React preset의 기본 automatic runtime은 인라인 스크립트에 import 문을 주입해 깨지므로
+     classic runtime을 쓰는 커스텀 preset을 등록한다. (Babel 자동 트랜스파일 전에 실행됨) */
+  Babel.registerPreset('react-classic', {
+    presets: [[Babel.availablePresets['react'], { runtime: 'classic' }]]
+  });
+</script>
+<style>
+  :root{
+    --background:#0B0B0B;
+    --card:#161616;
+    --deepRed:#8B0D1A;
+    --electricBlue:#0D1D8B;
+    --silver:#C0C0C0;
+    --gold:#D4AF37;
+    --white:#FFFFFF;
+    --mutedText:#A0A0A0;
+    --green:#3E8B3E;
+    --purple:#6D42A3;
+    --pink:#DB5A9B;
+    --yellow:#F2C230;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--background);
+    color:var(--white);
+    font-family:'Noto Sans KR','Inter',system-ui,-apple-system,sans-serif;
+    overscroll-behavior:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  #root{min-height:100dvh;display:flex;justify-content:center;}
+
+  /* ===== Stage / Frame ===== */
+  .stage{
+    position:relative;
+    width:100%;
+    max-width:430px;
+    min-height:100dvh;
+    overflow:hidden;
+    background:var(--background);
+    display:flex;
+    flex-direction:column;
+    isolation:isolate;
+  }
+  /* ambient red/blue lounge lighting */
+  .lights{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  .light{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;mix-blend-mode:screen;}
+  .light.red{width:360px;height:360px;background:var(--deepRed);top:-120px;left:-110px;animation:float1 9s ease-in-out infinite;}
+  .light.blue{width:380px;height:380px;background:var(--electricBlue);bottom:-140px;right:-130px;animation:float2 11s ease-in-out infinite;}
+  .light.violet{width:240px;height:240px;background:var(--purple);top:38%;left:55%;opacity:.30;animation:float1 13s ease-in-out infinite reverse;}
+  @keyframes float1{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(24px,30px) scale(1.08);}}
+  @keyframes float2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-26px,-24px) scale(1.1);}}
+  .grain{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+  .screen{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;padding:24px 22px 30px;}
+  .fade{animation:fade .5s ease both;}
+  @keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  .swap{animation:swap .4s cubic-bezier(.2,.7,.2,1) both;}
+  @keyframes swap{from{opacity:0;transform:translateX(26px) scale(.99);}to{opacity:1;transform:translateX(0) scale(1);}}
+
+  /* ===== Mask graphic ===== */
+  .mask-wrap{position:relative;display:flex;align-items:center;justify-content:center;}
+  .mask-halo{position:absolute;width:230px;height:230px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,rgba(192,192,192,.22),transparent 60%),
+               radial-gradient(circle at 70% 75%,rgba(13,29,139,.35),transparent 60%);
+    filter:blur(6px);}
+
+  /* sticker dots floating around landing */
+  .sticker-dot{position:absolute;border-radius:50%;font-size:9px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;color:#0B0B0B;
+    box-shadow:0 4px 18px rgba(0,0,0,.5);animation:bob 4s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
+
+  /* ===== Typography ===== */
+  .brand{font-family:'Inter',sans-serif;font-weight:800;letter-spacing:.04em;}
+  .eyebrow{font-size:11px;letter-spacing:.32em;color:var(--mutedText);text-transform:uppercase;font-weight:600;}
+  .muted{color:var(--mutedText);}
+
+  /* ===== Buttons ===== */
+  .btn{border:none;cursor:pointer;font-family:inherit;font-weight:700;border-radius:16px;
+    transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;}
+  .btn:active{transform:scale(.975);}
+  .btn-primary{
+    width:100%;min-height:58px;font-size:16px;color:#fff;letter-spacing:.02em;
+    background:linear-gradient(120deg,var(--deepRed),#b21d2c 40%,var(--electricBlue));
+    background-size:160% 160%;animation:shift 6s ease infinite;
+    box-shadow:0 10px 30px rgba(139,13,26,.35),0 6px 24px rgba(13,29,139,.3);
+  }
+  @keyframes shift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+  .btn-ghost{width:100%;min-height:52px;font-size:15px;color:var(--silver);
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);}
+
+  /* option buttons */
+  .opt{position:relative;width:100%;min-height:62px;display:flex;align-items:center;gap:14px;
+    text-align:left;padding:16px 18px;font-size:15.5px;line-height:1.35;color:#ECECEC;font-weight:500;
+    background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.10);border-radius:16px;cursor:pointer;font-family:inherit;
+    transition:transform .14s ease,border-color .2s ease,box-shadow .25s ease,background .25s ease;}
+  .opt:active{transform:scale(.985);}
+  .opt .idx{flex:none;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;color:var(--silver);background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);font-family:'Inter';}
+  .opt.chosen{border-color:rgba(255,255,255,.55);
+    background:linear-gradient(180deg,rgba(219,90,155,.18),rgba(13,29,139,.16));
+    box-shadow:0 0 0 1px rgba(255,255,255,.25),0 0 28px rgba(219,90,155,.45),0 0 40px rgba(13,29,139,.35);}
+  .opt.chosen .idx{color:#fff;background:rgba(255,255,255,.16);}
+
+  /* ===== Progress ===== */
+  .progress-track{height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;}
+  .progress-fill{height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--deepRed),var(--pink) 50%,var(--electricBlue));
+    transition:width .45s cubic-bezier(.4,0,.2,1);box-shadow:0 0 14px rgba(219,90,155,.6);}
+  .qcount{font-family:'Inter';font-weight:700;font-size:13px;letter-spacing:.18em;color:var(--silver);}
+  .back-btn{display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 14px 0 10px;
+    font-family:inherit;font-size:13px;font-weight:600;color:var(--silver);cursor:pointer;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:99px;
+    transition:transform .14s ease,border-color .2s,color .2s;}
+  .back-btn:hover{color:#fff;border-color:rgba(255,255,255,.3);}
+  .back-btn:active{transform:scale(.94);}
+
+  /* ===== Input ===== */
+  .field{width:100%;min-height:58px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
+    border-radius:16px;padding:0 18px;color:#fff;font-size:16px;font-family:inherit;outline:none;
+    transition:border-color .2s,box-shadow .2s;}
+  .field::placeholder{color:#6b6b6b;}
+  .field:focus{border-color:var(--pink);box-shadow:0 0 0 3px rgba(219,90,155,.18);}
+
+  /* ===== Toast ===== */
+  .toast{margin-top:16px;text-align:center;font-size:13px;color:var(--silver);
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;padding:11px 14px;animation:pop .5s ease both;}
+  @keyframes pop{from{opacity:0;transform:scale(.96) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}
+
+  /* ===== Loading ===== */
+  .spin-mask{animation:spin 2.4s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loader-stickers{display:flex;gap:12px;margin-top:30px;}
+  .ls{width:26px;height:26px;border-radius:50%;opacity:0;transform:scale(.4);
+    animation:stick .6s ease forwards;}
+  @keyframes stick{to{opacity:1;transform:scale(1);}}
+
+  /* ===== Result ===== */
+  .result-card{position:relative;border-radius:24px;padding:30px 24px 26px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);background:var(--card);}
+  .result-glow{position:absolute;inset:0;z-index:0;opacity:.9;}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:99px;
+    font-size:13px;font-weight:600;color:#fff;background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.16);}
+  .sticker{display:inline-flex;align-items:center;padding:11px 16px;border-radius:99px;
+    font-size:14px;font-weight:700;color:#0B0B0B;box-shadow:0 6px 18px rgba(0,0,0,.45);}
+  .code-box{border-radius:18px;padding:18px;text-align:center;
+    border:1px dashed rgba(255,255,255,.3);background:rgba(0,0,0,.35);}
+  .code-text{font-family:'Inter';font-weight:800;font-size:32px;letter-spacing:.12em;}
+
+  /* ===== Debug ===== */
+  .debug{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:430px;z-index:50;}
+  .debug-toggle{position:absolute;right:12px;bottom:12px;width:42px;height:42px;border-radius:50%;
+    background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);color:var(--silver);
+    font-size:16px;cursor:pointer;backdrop-filter:blur(6px);}
+  .debug-panel{background:rgba(8,8,8,.96);border-top:1px solid rgba(255,255,255,.15);
+    padding:14px 16px;font-family:'Inter',monospace;font-size:11px;color:#9fe6a0;max-height:42dvh;overflow:auto;}
+  .debug-panel .k{color:var(--silver);}
+  .bar-row{display:flex;align-items:center;gap:8px;margin:3px 0;}
+  .bar-row .nm{width:54px;color:var(--silver);font-weight:700;}
+  .bar-row .tr{flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden;}
+  .bar-row .fl{height:100%;border-radius:6px;}
+
+  .hr{height:1px;background:rgba(255,255,255,.09);border:none;margin:0;}
+  a.reset-link{color:var(--silver);text-decoration:underline;cursor:pointer;font-size:13px;}
+  .saved-flash{animation:savedflash .4s ease;}
+  @keyframes savedflash{from{transform:scale(.9);}to{transform:scale(1);}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react-classic">
+const { useState, useEffect, useRef, useMemo } = React;
+
+/* =========================================================
+   DATA
+   ========================================================= */
+const COLORS = {
+  background:"#0B0B0B", card:"#161616", deepRed:"#8B0D1A", electricBlue:"#0D1D8B",
+  silver:"#C0C0C0", gold:"#D4AF37", white:"#FFFFFF", mutedText:"#A0A0A0",
+  green:"#3E8B3E", purple:"#6D42A3", pink:"#DB5A9B", yellow:"#F2C230"
+};
+
+const RESULTS = {
+  RED:{name:"Fire Type",colorName:"Red",title:"분위기에 불을 붙이는 사람",
+    description:"당신은 처음 만난 자리에서도 에너지를 만들 수 있는 사람입니다. 솔직하고 빠른 표현으로 사람들의 시선을 끌고, 대화를 움직이게 만듭니다.",
+    stickers:["열정적이에요","강렬해요","눈에 띄어요"],themeColor:"#8B0D1A"},
+  YELLOW:{name:"Spark Type",colorName:"Yellow",title:"처음 만난 사람도 웃게 만드는 사람",
+    description:"당신은 어색한 분위기를 부드럽게 바꾸는 사람입니다. 밝은 리액션과 유머로 사람들이 쉽게 다가오게 만듭니다.",
+    stickers:["밝아요","재밌어요","다가가기 쉬워요"],themeColor:"#F2C230"},
+  BLUE:{name:"Calm Type",colorName:"Blue",title:"대화에 안정감을 주는 사람",
+    description:"당신은 시끄럽게 드러나기보다 차분하게 신뢰를 주는 사람입니다. 오래 이야기할수록 더 편안한 매력이 살아납니다.",
+    stickers:["차분해요","안정적이에요","믿음이 가요"],themeColor:"#0D1D8B"},
+  GREEN:{name:"Warm Type",colorName:"Green",title:"주변을 편하게 만드는 사람",
+    description:"당신은 상대가 자연스럽게 마음을 열게 만드는 사람입니다. 배려와 경청이 느껴져 대화가 편안하게 이어집니다.",
+    stickers:["편안해요","따뜻해요","배려 있어요"],themeColor:"#3E8B3E"},
+  PURPLE:{name:"Unique Type",colorName:"Purple",title:"알수록 새로운 사람",
+    description:"당신은 평범하게 설명하기 어려운 매력을 가진 사람입니다. 독특한 취향과 생각으로 상대에게 궁금증을 남깁니다.",
+    stickers:["개성 있어요","신선해요","더 알고 싶어요"],themeColor:"#6D42A3"},
+  SILVER:{name:"Mystery Type",colorName:"Silver",title:"조용하지만 오래 남는 사람",
+    description:"당신은 쉽게 읽히지 않지만 그래서 더 궁금해지는 사람입니다. 말수보다 분위기로 기억되는 타입입니다.",
+    stickers:["궁금해요","분위기 있어요","기억에 남아요"],themeColor:"#C0C0C0"}
+};
+
+const TIE_BREAKER = ["PURPLE","SILVER","RED","YELLOW","GREEN","BLUE"];
+
+const QUESTIONS = [
+  {id:1,question:"파티장에 들어왔는데 아는 사람이 없다. 나는?",options:[
+    {text:"먼저 주변 사람에게 말을 건다",scores:{RED:2,YELLOW:1}},
+    {text:"분위기를 보다가 자연스럽게 섞인다",scores:{GREEN:2,BLUE:1}},
+    {text:"조용히 음료를 들고 공간을 살핀다",scores:{SILVER:2,BLUE:1}},
+    {text:"흥미로운 사람 한 명을 찾아 대화를 건다",scores:{PURPLE:2,RED:1}}]},
+  {id:2,question:"처음 만난 사람이 나에게 말을 걸었다. 나는?",options:[
+    {text:"바로 리액션하며 대화를 이어간다",scores:{YELLOW:2,RED:1}},
+    {text:"상대가 편하게 말하도록 질문을 던진다",scores:{GREEN:2,BLUE:1}},
+    {text:"짧게 답하지만 눈빛으로 관심을 보인다",scores:{SILVER:2,PURPLE:1}},
+    {text:"예상 밖의 주제로 대화를 틀어본다",scores:{PURPLE:2,YELLOW:1}}]},
+  {id:3,question:"친구들이 나를 한 단어로 표현한다면?",options:[
+    {text:"에너지",scores:{RED:2}},
+    {text:"편안함",scores:{GREEN:2}},
+    {text:"센스",scores:{YELLOW:2}},
+    {text:"분위기",scores:{SILVER:2,PURPLE:1}}]},
+  {id:4,question:"마음에 드는 사람이 생겼다. 나는?",options:[
+    {text:"티 나게 관심을 표현한다",scores:{RED:2,YELLOW:1}},
+    {text:"자연스럽게 대화를 이어간다",scores:{GREEN:2,BLUE:1}},
+    {text:"쉽게 티 내지 않고 조금 더 지켜본다",scores:{SILVER:2,BLUE:1}},
+    {text:"평범하지 않은 방식으로 기억에 남는다",scores:{PURPLE:2,RED:1}}]},
+  {id:5,question:"오늘 가장 받고 싶은 스티커는?",options:[
+    {text:"열정적이에요",scores:{RED:2}},
+    {text:"편안해요",scores:{GREEN:2}},
+    {text:"재밌어요",scores:{YELLOW:2}},
+    {text:"궁금해져요",scores:{SILVER:2,PURPLE:1}}]},
+  {id:6,question:"새로운 사람들과 있는 자리에서 나는 주로?",options:[
+    {text:"분위기를 띄운다",scores:{YELLOW:2,RED:1}},
+    {text:"사람들 사이를 자연스럽게 연결한다",scores:{GREEN:2,YELLOW:1}},
+    {text:"말은 적지만 존재감은 있다",scores:{SILVER:2,BLUE:1}},
+    {text:"남들이 안 하는 이야기를 꺼낸다",scores:{PURPLE:2,RED:1}}]},
+  {id:7,question:"나에게 더 가까운 연애 스타일은?",options:[
+    {text:"좋으면 좋다고 표현하는 편",scores:{RED:2}},
+    {text:"장난치며 자연스럽게 가까워지는 편",scores:{YELLOW:2}},
+    {text:"천천히 신뢰를 쌓는 편",scores:{BLUE:2,GREEN:1}},
+    {text:"쉽게 읽히지 않는 편",scores:{SILVER:2,PURPLE:1}}]},
+  {id:8,question:"사람들이 나를 다시 만나고 싶어 한다면 이유는?",options:[
+    {text:"같이 있으면 에너지가 생겨서",scores:{RED:2}},
+    {text:"웃기고 편해서",scores:{YELLOW:2}},
+    {text:"이야기를 잘 들어줘서",scores:{GREEN:2}},
+    {text:"알수록 새로운 면이 있어서",scores:{PURPLE:2,SILVER:1}}]},
+  {id:9,question:"오늘의 나는 어떤 모습이고 싶어?",options:[
+    {text:"눈에 띄는 사람",scores:{RED:2}},
+    {text:"다가가기 쉬운 사람",scores:{YELLOW:2,GREEN:1}},
+    {text:"오래 대화하고 싶은 사람",scores:{BLUE:2,GREEN:1}},
+    {text:"쉽게 잊히지 않는 사람",scores:{SILVER:2,PURPLE:1}}]},
+  {id:10,question:"모르는 사람과 대화할 때 가장 중요한 건?",options:[
+    {text:"텐션",scores:{RED:2}},
+    {text:"유머",scores:{YELLOW:2}},
+    {text:"편안함",scores:{GREEN:2}},
+    {text:"묘한 끌림",scores:{SILVER:2,PURPLE:1}}]},
+  {id:11,question:"나의 매력은 보통 언제 드러나는 편?",options:[
+    {text:"처음부터 바로",scores:{RED:2,YELLOW:1}},
+    {text:"몇 마디만 나눠도",scores:{YELLOW:2,GREEN:1}},
+    {text:"오래 이야기할수록",scores:{BLUE:2,GREEN:1}},
+    {text:"시간이 지나고 나서야",scores:{SILVER:2,PURPLE:1}}]},
+  {id:12,question:"오늘 밤, 누군가 나를 기억한다면 어떤 사람으로 기억되고 싶어?",options:[
+    {text:"강렬했던 사람",scores:{RED:2}},
+    {text:"밝았던 사람",scores:{YELLOW:2}},
+    {text:"따뜻했던 사람",scores:{GREEN:2}},
+    {text:"궁금했던 사람",scores:{SILVER:2,PURPLE:1}}]}
+];
+
+const INTERSTITIALS = {
+  3:"당신의 가면이 조금씩 선명해지고 있어요.",
+  6:"누군가는 당신을 이미 궁금해할지도 몰라요.",
+  9:"마지막 몇 장의 스티커가 남았습니다."
+};
+
+const LOADING_LINES = [
+  "당신의 가면을 고르는 중...",
+  "오늘의 첫인상을 조합하는 중...",
+  "당신의 페르소나를 불러오는 중...",
+  "스티커의 색을 맞추는 중..."
+];
+
+const STICKER_COLORS = [COLORS.pink,COLORS.electricBlue,COLORS.yellow,COLORS.green,COLORS.purple,COLORS.deepRed];
+
+/* =========================================================
+   LOGIC
+   ========================================================= */
+function emptyScores(){return {RED:0,YELLOW:0,BLUE:0,GREEN:0,PURPLE:0,SILVER:0};}
+
+function computeScores(answers){
+  const s = emptyScores();
+  answers.forEach((optIdx,qIdx)=>{
+    if(optIdx==null) return;
+    const sc = QUESTIONS[qIdx].options[optIdx].scores;
+    Object.keys(sc).forEach(k=>{ s[k]+=sc[k]; });
+  });
+  return s;
+}
+
+function pickResult(scores){
+  let max = -1;
+  Object.values(scores).forEach(v=>{ if(v>max) max=v; });
+  const top = Object.keys(scores).filter(k=>scores[k]===max);
+  if(top.length===1) return top[0];
+  for(const t of TIE_BREAKER){ if(top.includes(t)) return t; }
+  return top[0];
+}
+
+function generateResultCode(type){
+  const n = Math.floor(Math.random()*900)+100; // 100-999
+  return `${type}-${n}`;
+}
+
+/* =========================================================
+   SVG MASK
+   ========================================================= */
+function MaskIcon({size=120,glow="#C0C0C0",className=""}){
+  // 인스턴스마다 고유 gradient id (동시 렌더 시 id 충돌 방지)
+  const uid = useMemo(()=>"m"+Math.random().toString(36).slice(2,8),[]);
+  const body=`bd_${uid}`, sheen=`sh_${uid}`, halo=`hl_${uid}`, gold=`gd_${uid}`, eye=`ey_${uid}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 140 140" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={body} x1="20" y1="20" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#F6F6F8"/>
+          <stop offset="0.34" stopColor="#CFCFD6"/>
+          <stop offset="0.62" stopColor="#9A9AA6"/>
+          <stop offset="1" stopColor="#6E6E7A"/>
+        </linearGradient>
+        <linearGradient id={gold} x1="30" y1="20" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#F4E29B"/>
+          <stop offset="0.5" stopColor="#D4AF37"/>
+          <stop offset="1" stopColor="#9C7B1E"/>
+        </linearGradient>
+        <radialGradient id={halo} cx="0.5" cy="0.42" r="0.62">
+          <stop offset="0" stopColor={glow} stopOpacity="0.55"/>
+          <stop offset="0.55" stopColor={glow} stopOpacity="0.18"/>
+          <stop offset="1" stopColor={glow} stopOpacity="0"/>
+        </radialGradient>
+        <linearGradient id={sheen} x1="40" y1="28" x2="62" y2="86" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.85"/>
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0"/>
+        </linearGradient>
+        <radialGradient id={eye} cx="0.5" cy="0.5" r="0.6">
+          <stop offset="0" stopColor="#000000"/>
+          <stop offset="1" stopColor="#0B0B0B"/>
+        </radialGradient>
+      </defs>
+
+      {/* glow halo */}
+      <circle cx="70" cy="64" r="66" fill={`url(#${halo})`}/>
+
+      {/* upswept crown filigree */}
+      <g stroke={`url(#${gold})`} strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.95">
+        <path d="M70 30 C 60 14, 44 8, 33 12 C 41 14, 47 19, 49 27"/>
+        <path d="M70 30 C 80 14, 96 8, 107 12 C 99 14, 93 19, 91 27"/>
+        <path d="M37 13 C 31 9, 24 12, 26 19 C 28 15, 33 14, 36 17"/>
+        <path d="M103 13 C 109 9, 116 12, 114 19 C 112 15, 107 14, 104 17"/>
+      </g>
+
+      {/* mask body */}
+      <path d="M70 34
+        C 58 25, 41 21, 29 26
+        C 17 31, 13 43, 15 55
+        C 17 69, 26 83, 41 90
+        C 51 95, 61 96, 70 96
+        C 79 96, 89 95, 99 90
+        C 114 83, 123 69, 125 55
+        C 127 43, 123 31, 111 26
+        C 99 21, 82 25, 70 34 Z"
+        fill={`url(#${body})`} stroke="#5b5b66" strokeWidth="1.3"/>
+
+      {/* inner contour line for depth */}
+      <path d="M70 41
+        C 60 33, 46 31, 36 35
+        C 26 39, 23 49, 25 59
+        C 27 71, 35 82, 47 87
+        C 56 91, 64 91, 70 91
+        C 76 91, 84 91, 93 87
+        C 105 82, 113 71, 115 59
+        C 117 49, 114 39, 104 35
+        C 94 31, 80 33, 70 41 Z"
+        fill="none" stroke="#ffffff" strokeOpacity="0.22" strokeWidth="1"/>
+
+      {/* eye holes */}
+      <path d="M33 56 C 39 47, 54 46, 60 55 C 54 64, 39 65, 33 56 Z" fill={`url(#${eye})`} stroke={`url(#${gold})`} strokeWidth="1.6"/>
+      <path d="M80 55 C 86 46, 101 47, 107 56 C 101 65, 86 64, 80 55 Z" fill={`url(#${eye})`} stroke={`url(#${gold})`} strokeWidth="1.6"/>
+
+      {/* brow filigree above eyes */}
+      <g stroke={`url(#${gold})`} strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.9">
+        <path d="M31 48 C 26 42, 28 36, 35 37"/>
+        <path d="M109 48 C 114 42, 112 36, 105 37"/>
+        <path d="M47 70 C 44 76, 38 78, 35 74"/>
+        <path d="M93 70 C 96 76, 102 78, 105 74"/>
+      </g>
+
+      {/* nose bridge accent */}
+      <path d="M70 41 C 72 52, 72 62, 70 72" stroke="#ffffff" strokeOpacity="0.18" strokeWidth="1.4" strokeLinecap="round"/>
+
+      {/* center gem */}
+      <circle cx="70" cy="33" r="4.2" fill={`url(#${gold})`} stroke="#fff8e1" strokeOpacity="0.6" strokeWidth="0.8"/>
+      <circle cx="68.6" cy="31.6" r="1.1" fill="#fff" fillOpacity="0.9"/>
+
+      {/* side gems */}
+      <circle cx="22" cy="58" r="2.6" fill={`url(#${gold})`}/>
+      <circle cx="118" cy="58" r="2.6" fill={`url(#${gold})`}/>
+
+      {/* glossy sheen highlight */}
+      <path d="M40 38 C 33 46, 31 58, 36 70 C 33 56, 38 44, 50 36 C 46 35, 43 36, 40 38 Z"
+        fill={`url(#${sheen})`} opacity="0.6"/>
+    </svg>
+  );
+}
+
+/* =========================================================
+   SCREENS
+   ========================================================= */
+function Landing({onStart}){
+  const dots = [
+    {t:"열정",c:COLORS.deepRed,x:"6%",y:"14%",d:"0s"},
+    {t:"차분",c:COLORS.electricBlue,x:"80%",y:"10%",d:".6s"},
+    {t:"개성",c:COLORS.purple,x:"84%",y:"60%",d:"1.1s"},
+    {t:"밝음",c:COLORS.yellow,x:"4%",y:"58%",d:".3s"},
+    {t:"따뜻",c:COLORS.green,x:"14%",y:"82%",d:".9s"},
+    {t:"미스터리",c:COLORS.silver,x:"74%",y:"84%",d:"1.4s"},
+  ];
+  return (
+    <div className="screen fade" style={{justifyContent:"center"}}>
+      <div style={{textAlign:"center"}}>
+        <div className="eyebrow">BLIND SOCIAL PARTY</div>
+        <div className="brand" style={{fontSize:46,marginTop:14,letterSpacing:".02em",
+          background:"linear-gradient(120deg,#fff,#C0C0C0 60%,#8B0D1A)",WebkitBackgroundClip:"text",
+          WebkitTextFillColor:"transparent"}}>MASK:OFF</div>
+        <div className="muted" style={{fontSize:14,marginTop:8,letterSpacing:".02em"}}>얼굴 말고, 성격을 밝히는 밤</div>
+
+        <div className="mask-wrap" style={{height:268,margin:"18px 0 6px"}}>
+          <div className="mask-halo"></div>
+          {dots.map((d,i)=>(
+            <div key={i} className="sticker-dot" style={{left:d.x,top:d.y,width:46,height:46,
+              background:d.c,color:d.c===COLORS.yellow||d.c===COLORS.silver?"#0B0B0B":"#fff",
+              animationDelay:d.d,fontSize:10}}>{d.t}</div>
+          ))}
+          <MaskIcon size={150} glow={COLORS.silver} />
+        </div>
+
+        <p className="muted" style={{fontSize:14,lineHeight:1.65,margin:"6px 24px 0"}}>
+          오늘 밤, 당신은 어떤 사람으로 기억될까요?<br/>
+          12개의 질문에 답하고 당신의 가면을 찾아보세요.
+        </p>
+      </div>
+
+      <div style={{marginTop:"auto",paddingTop:28}}>
+        <button className="btn btn-primary" onClick={onStart}>내 가면 찾기</button>
+        <p className="muted" style={{textAlign:"center",fontSize:11.5,marginTop:14,letterSpacing:".02em"}}>
+          약 2분 소요 · 결과는 입장 시 가면 코드로 연결됩니다.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function NicknameScreen({nickname,setNickname,onStart}){
+  const ref = useRef(null);
+  useEffect(()=>{ const t=setTimeout(()=>ref.current&&ref.current.focus(),300); return ()=>clearTimeout(t); },[]);
+  const submit=()=>onStart();
+  return (
+    <div className="screen swap" style={{justifyContent:"center"}}>
+      <div style={{textAlign:"center",marginBottom:26}}>
+        <MaskIcon size={84} glow={COLORS.pink}/>
+        <h2 style={{fontSize:21,fontWeight:700,margin:"20px 0 0",lineHeight:1.5}}>
+          오늘 밤, 당신은<br/>어떤 이름으로 기억될까요?
+        </h2>
+      </div>
+      <input ref={ref} className="field" placeholder="닉네임을 입력해주세요" value={nickname}
+        maxLength={16}
+        onChange={e=>setNickname(e.target.value)}
+        onKeyDown={e=>{ if(e.key==="Enter") submit(); }} />
+      <p className="muted" style={{fontSize:12,marginTop:12,textAlign:"center"}}>
+        입력하지 않아도 괜찮아요 · 비워두면 <span style={{color:COLORS.silver}}>익명의 가면</span>으로 진행돼요.
+      </p>
+      <div style={{marginTop:"auto",paddingTop:28}}>
+        <button className="btn btn-primary" onClick={submit}>테스트 시작하기</button>
+      </div>
+    </div>
+  );
+}
+
+function QuestionScreen({index,answers,onSelect,onBack}){
+  const q = QUESTIONS[index];
+  const [chosen,setChosen] = useState(null);
+  const [showToast,setShowToast] = useState(false);
+  const lockRef = useRef(false);
+
+  useEffect(()=>{ setChosen(answers[index]); setShowToast(false); lockRef.current=false; },[index]);
+
+  const handle=(i)=>{
+    if(lockRef.current) return;        // 전환 애니메이션 중 중복 입력 방지
+    lockRef.current = true;
+    setChosen(i);
+    const inter = INTERSTITIALS[q.id];
+    if(inter) setShowToast(true);
+    setTimeout(()=>onSelect(i), inter?900:330);
+  };
+
+  const num = String(index+1).padStart(2,"0");
+  const pct = (index)/QUESTIONS.length*100;
+
+  return (
+    <div className="screen">
+      {/* header */}
+      <div className="fade">
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,minHeight:34}}>
+          {index>0
+            ? <button className="back-btn" onClick={onBack}>‹ 이전</button>
+            : <span></span>}
+          <span className="muted" style={{fontSize:12}}>{Math.round((index)/QUESTIONS.length*100)}%</span>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:10}}>
+          <span className="qcount">Q {num} <span style={{color:COLORS.mutedText}}>/ {QUESTIONS.length}</span></span>
+          {chosen!=null && <span className="muted" style={{fontSize:11}}>답을 바꾸려면 다시 선택하세요</span>}
+        </div>
+        <div className="progress-track"><div className="progress-fill" style={{width:`${pct}%`}}></div></div>
+      </div>
+
+      {/* question card */}
+      <div key={index} className="swap" style={{marginTop:34,flex:1,display:"flex",flexDirection:"column"}}>
+        <div style={{marginBottom:24}}>
+          <div className="eyebrow" style={{marginBottom:12}}>QUESTION</div>
+          <h2 style={{fontSize:22,fontWeight:700,lineHeight:1.5,margin:0,letterSpacing:"-.01em"}}>{q.question}</h2>
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:11}}>
+          {q.options.map((o,i)=>(
+            <button key={i} className={"opt"+(chosen===i?" chosen":"")} onClick={()=>handle(i)}>
+              <span className="idx">{String.fromCharCode(65+i)}</span>
+              <span>{o.text}</span>
+            </button>
+          ))}
+        </div>
+
+        {showToast && INTERSTITIALS[q.id] &&
+          <div className="toast">✦ {INTERSTITIALS[q.id]}</div>}
+
+        {!showToast &&
+          <p className="muted" style={{fontSize:11.5,textAlign:"center",marginTop:"auto",paddingTop:18,letterSpacing:".03em"}}>
+            정답은 없어요. 지금의 당신을 골라주세요.
+          </p>}
+      </div>
+    </div>
+  );
+}
+
+function LoadingScreen(){
+  const [line,setLine] = useState(LOADING_LINES[0]);
+  useEffect(()=>{
+    let i=0;
+    const t=setInterval(()=>{ i=(i+1)%LOADING_LINES.length; setLine(LOADING_LINES[i]); },650);
+    return ()=>clearInterval(t);
+  },[]);
+  return (
+    <div className="screen fade" style={{justifyContent:"center",alignItems:"center",textAlign:"center"}}>
+      <div className="spin-mask"><MaskIcon size={120} glow={COLORS.pink}/></div>
+      <div className="loader-stickers">
+        {STICKER_COLORS.map((c,i)=>(
+          <div key={i} className="ls" style={{background:c,animationDelay:`${i*0.18}s`}}></div>
+        ))}
+      </div>
+      <p style={{fontSize:16,marginTop:30,fontWeight:600,minHeight:24}}>{line}</p>
+      <p className="muted" style={{fontSize:12,marginTop:6}}>잠시만 기다려주세요</p>
+    </div>
+  );
+}
+
+function ResultScreen({result,nickname,code,onSave,onReset,saved}){
+  const r = RESULTS[result];
+  const tc = r.themeColor;
+  const lightText = result==="YELLOW"||result==="SILVER";
+  const stickerText = (c)=> (c===COLORS.yellow||c===COLORS.silver) ? "#0B0B0B" : "#fff";
+  const palette = [tc, result==="RED"?COLORS.pink:COLORS.electricBlue, result==="SILVER"?COLORS.purple:COLORS.silver];
+
+  return (
+    <div className="screen fade" style={{paddingTop:18}}>
+      <p className="muted" style={{textAlign:"center",fontSize:13,marginBottom:14}}>
+        {nickname||"익명의 가면"} 님의 오늘 밤 페르소나
+      </p>
+
+      <div className="result-card">
+        <div className="result-glow" style={{
+          background:`radial-gradient(120% 90% at 50% 0%, ${tc}66, transparent 60%),
+                      radial-gradient(80% 60% at 80% 100%, ${COLORS.electricBlue}40, transparent 60%)`}}></div>
+        <div style={{position:"relative",zIndex:1,textAlign:"center"}}>
+          <div className="chip" style={{borderColor:tc,background:`${tc}33`}}>
+            <span style={{width:9,height:9,borderRadius:"50%",background:tc,boxShadow:`0 0 10px ${tc}`}}></span>
+            당신의 가면은 {r.colorName.toUpperCase()} / {r.name.split(" ")[0].toUpperCase()}
+          </div>
+
+          <div style={{margin:"18px 0 8px"}}>
+            <MaskIcon size={92} glow={tc}/>
+          </div>
+
+          <h1 style={{fontSize:24,fontWeight:800,margin:"6px 12px 0",lineHeight:1.45}}>{r.title}</h1>
+          <p style={{fontSize:11,letterSpacing:".22em",color:COLORS.mutedText,marginTop:8,fontFamily:"Inter",fontWeight:600}}>
+            {r.name.toUpperCase()}
+          </p>
+
+          <p className="muted" style={{fontSize:14.5,lineHeight:1.7,margin:"16px 4px 0",color:"#cfcfcf"}}>
+            {r.description}
+          </p>
+        </div>
+      </div>
+
+      {/* stickers */}
+      <div style={{marginTop:24}}>
+        <p style={{fontSize:13,color:COLORS.silver,marginBottom:12,fontWeight:600}}>
+          오늘 당신이 받을지도 모르는 스티커
+        </p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+          {r.stickers.map((s,i)=>(
+            <span key={i} className="sticker" style={{background:palette[i%palette.length],color:stickerText(palette[i%palette.length])}}>
+              {s}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* code */}
+      <div style={{marginTop:24}}>
+        <div className="code-box">
+          <div className="muted" style={{fontSize:11,letterSpacing:".22em",marginBottom:8}}>ENTRY CODE</div>
+          <div className="code-text" style={{color:tc===COLORS.silver?"#fff":tc,textShadow:`0 0 22px ${tc}99`}}>{code}</div>
+          <div className="muted" style={{fontSize:12,marginTop:10}}>입장 시 이 화면을 보여주세요.</div>
+        </div>
+      </div>
+
+      <div style={{marginTop:24,display:"flex",flexDirection:"column",gap:11}}>
+        <button className={"btn btn-primary"+(saved?" saved-flash":"")} onClick={onSave}>
+          {saved? "✓ 결과가 저장되었어요" : "결과 저장하기"}
+        </button>
+        <button className="btn btn-ghost" onClick={onReset}>다시 하기</button>
+      </div>
+
+      <div style={{height:60}}></div>
+    </div>
+  );
+}
+
+/* =========================================================
+   DEBUG PANEL  (분리된 컴포넌트 — 실사용 시 enableDebug=false)
+   ========================================================= */
+function DebugPanel({scores,answers,result,code,nickname}){
+  const [open,setOpen] = useState(false);
+  const maxVal = Math.max(1,...Object.values(scores));
+  return (
+    <div className="debug">
+      {open &&
+        <div className="debug-panel">
+          <div className="k" style={{marginBottom:6}}>● DEBUG / 관리자 확인용</div>
+          <div className="k">nickname: <span style={{color:"#fff"}}>{nickname||"(익명의 가면)"}</span></div>
+          {Object.keys(scores).map(k=>(
+            <div className="bar-row" key={k}>
+              <span className="nm">{k}</span>
+              <span className="tr"><span className="fl" style={{width:`${scores[k]/maxVal*100}%`,background:RESULTS[k].themeColor}}></span></span>
+              <span style={{width:20,textAlign:"right"}}>{scores[k]}</span>
+            </div>
+          ))}
+          <hr className="hr" style={{margin:"8px 0"}}/>
+          <div className="k">answers: <span style={{color:"#fff"}}>[{answers.map(a=>a==null?"·":a).join(", ")}]</span></div>
+          <div className="k">resultType: <span style={{color:result?RESULTS[result].themeColor:"#fff",fontWeight:700}}>{result||"-"}</span></div>
+          <div className="k">resultCode: <span style={{color:"#fff"}}>{code||"-"}</span></div>
+        </div>}
+      <button className="debug-toggle" onClick={()=>setOpen(o=>!o)} title="디버그 패널">
+        {open?"×":"⚙"}
+      </button>
+    </div>
+  );
+}
+
+/* =========================================================
+   APP
+   ========================================================= */
+const ENABLE_DEBUG = true; // 실제 사용자 배포 시 false 로 변경
+
+function App(){
+  const [step,setStep] = useState("landing"); // landing | nickname | quiz | loading | result
+  const [nickname,setNickname] = useState("");
+  const [qIndex,setQIndex] = useState(0);
+  const [answers,setAnswers] = useState(Array(QUESTIONS.length).fill(null));
+  const [result,setResult] = useState(null);
+  const [code,setCode] = useState("");
+  const [saved,setSaved] = useState(false);
+
+  const scores = useMemo(()=>computeScores(answers),[answers]);
+
+  const startTest = ()=>{ setStep("quiz"); setQIndex(0); };
+
+  const handleSelectOption = (optIndex)=>{
+    const next = answers.slice();
+    next[qIndex] = optIndex;
+    setAnswers(next);
+    if(qIndex < QUESTIONS.length-1){
+      setQIndex(qIndex+1);
+    } else {
+      finish(next);
+    }
+  };
+
+  const handleBack = ()=>{
+    if(qIndex>0) setQIndex(qIndex-1);
+  };
+
+  const finish = (finalAnswers)=>{
+    setStep("loading");
+    const sc = computeScores(finalAnswers);
+    const type = pickResult(sc);
+    const c = generateResultCode(type);
+    setResult(type);
+    setCode(c);
+    setSaved(false);
+    setTimeout(()=>setStep("result"), 2000);
+  };
+
+  const saveResultToLocalStorage = ()=>{
+    const payload = {
+      nickname: nickname || "익명의 가면",
+      resultType: result,
+      resultCode: code,
+      answers,
+      scores,
+      createdAt: new Date().toISOString()
+    };
+    try{
+      const KEY = "maskoff_results";
+      const prev = JSON.parse(localStorage.getItem(KEY)||"[]");
+      prev.push(payload);
+      localStorage.setItem(KEY, JSON.stringify(prev));
+      localStorage.setItem("maskoff_last", JSON.stringify(payload));
+    }catch(e){ console.warn("localStorage save failed",e); }
+    setSaved(true);
+  };
+
+  const resetTest = ()=>{
+    setStep("landing");
+    setNickname("");
+    setQIndex(0);
+    setAnswers(Array(QUESTIONS.length).fill(null));
+    setResult(null);
+    setCode("");
+    setSaved(false);
+  };
+
+  return (
+    <div className="stage">
+      <div className="lights">
+        <div className="light red"></div>
+        <div className="light blue"></div>
+        <div className="light violet"></div>
+      </div>
+      <div className="grain"></div>
+
+      {step==="landing"  && <Landing onStart={()=>setStep("nickname")} />}
+      {step==="nickname" && <NicknameScreen nickname={nickname} setNickname={setNickname} onStart={startTest} />}
+      {step==="quiz"     && <QuestionScreen index={qIndex} answers={answers} onSelect={handleSelectOption} onBack={handleBack} />}
+      {step==="loading"  && <LoadingScreen />}
+      {step==="result"   && <ResultScreen result={result} nickname={nickname} code={code}
+                              onSave={saveResultToLocalStorage} onReset={resetTest} saved={saved} />}
+
+      {ENABLE_DEBUG &&
+        <DebugPanel scores={scores} answers={answers} result={result} code={code} nickname={nickname} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
